@@ -566,7 +566,34 @@
     toastTimer = setTimeout(() => { el.className = 'toast'; }, 1800);
   }
 
+  // スマホでは、画面に さわった ときに 音の しくみを 起こしておかないと 鳴らない。
+  // iPhone は マナーモード（消音スイッチ）だと Web Audio が 消されるので、
+  // audioSession を 'playback' に して、音楽と おなじ あつかいに する。
   let actx = null;
+  function audioCtx() {
+    if (actx) return actx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* 古い ブラウザ */ }
+    actx = new AC();
+    return actx;
+  }
+  function unlockAudio() {
+    if (!app.settings.sound) return;
+    try {
+      const c = audioCtx();
+      if (!c) return;
+      if (c.state !== 'running') c.resume();
+      // 音の ない 短い 音を 1回 鳴らして、iOS の 制限を とく
+      const b = c.createBuffer(1, 1, 22050);
+      const s = c.createBufferSource();
+      s.buffer = b;
+      s.connect(c.destination);
+      s.start(0);
+    } catch (e) { /* 音が出せない環境では鳴らさない */ }
+  }
+  for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+
   function tone(freq, start, dur, type, vol) {
     const t0 = actx.currentTime + start;
     const o = actx.createOscillator();
@@ -583,8 +610,15 @@
   function sound(kind, k) {
     if (!app.settings.sound) return;
     try {
-      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-      if (actx.state === 'suspended') actx.resume();
+      const c = audioCtx();
+      if (!c) return;
+      // まだ 起きていなければ、起きてから 鳴らす（起きる前に 予約した 音は 消えることがある）
+      if (c.state !== 'running') { c.resume().then(() => play(kind, k)).catch(() => {}); return; }
+      play(kind, k);
+    } catch (e) { /* 音が出せない環境では鳴らさない */ }
+  }
+  function play(kind, k) {
+    try {
       if (kind === 'move') {
         const o = tone(1100, 0, 0.07, 'triangle', 0.3);
         o.frequency.exponentialRampToValueAtTime(240, actx.currentTime + 0.06);
