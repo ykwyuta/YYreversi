@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ひっくりかえるのがみえるリバーシ</title>
+  <meta name="description" content="どの石が ひっくりかえるか みえるから、はじめてでも あそべる リバーシ。スマホで CPU や ともだちと たいせんできます。">
+  <meta name="theme-color" content="#e7f3e4">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="リバーシ">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="title"><span class="t-sub">ひっくりかえるのがみえる</span><span class="t-main">リバーシ</span></h1>
+    <nav class="top-actions">
+      <button id="btn-puzzle" type="button" class="chip puzzle-chip"><span class="long">さいごの </span>もんだい</button>
+      <button id="btn-guide" type="button" class="chip">ルール</button>
+      <button id="btn-menu" type="button" class="chip">メニュー</button>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="game" aria-label="対局">
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="player" id="player-top"></div>
+      <div class="board-wrap">
+        <div class="files" id="files"></div>
+        <div class="board-row">
+          <div class="ranks" id="ranks"></div>
+          <div id="board" class="board" role="grid" aria-label="盤"></div>
+        </div>
+      </div>
+      <div class="player" id="player-bottom"></div>
+      <div class="controls play-controls">
+        <button id="btn-hint" type="button" class="big hint">ヒント</button>
+        <button id="btn-undo" type="button" class="big">まった</button>
+      </div>
+      <div class="controls pz-controls">
+        <button id="btn-pz-retry" type="button" class="big small">やりなおす</button>
+        <button id="btn-pz-answer" type="button" class="big small">こたえを みる</button>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="info" id="info"></div>
+      <details class="kifu-box">
+        <summary>きふ（これまでの 手）</summary>
+        <ol id="kifu"></ol>
+      </details>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+  <dialog id="dlg-new">
+    <form method="dialog" class="dlg">
+      <h2>あたらしい ゲーム</h2>
+      <p class="welcome" id="welcome">おける ところを タッチすると、どの 石が ひっくりかえるかが みえるよ。<br>ルールを しらなくても だいじょうぶ！ まずは 6×6 の ちいさい 盤から はじめよう。</p>
+      <fieldset>
+        <legend>だれと あそぶ？</legend>
+        <div class="seg">
+          <label><input type="radio" name="mode" value="cpu" checked><span>CPU と たいせん</span></label>
+          <label><input type="radio" name="mode" value="two"><span>ふたりで たいせん</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>ばんの おおきさ</legend>
+        <div class="seg">
+          <label><input type="radio" name="size" value="6" checked><span>6×6<small>はじめて むき</small></span></label>
+          <label><input type="radio" name="size" value="8"><span>8×8<small>ふつうの おおきさ</small></span></label>
+          <label><input type="radio" name="size" value="10"><span>10×10<small>ひろびろ</small></span></label>
+        </div>
+      </fieldset>
+      <fieldset class="cpu-only">
+        <legend>CPU の つよさ</legend>
+        <div class="seg">
+          <label><input type="radio" name="level" value="beginner" checked><span>はじめて</span></label>
+          <label><input type="radio" name="level" value="easy"><span>よわい</span></label>
+          <label><input type="radio" name="level" value="normal"><span>ふつう</span></label>
+          <label><input type="radio" name="level" value="hard"><span>つよい</span></label>
+        </div>
+      </fieldset>
+      <fieldset class="cpu-only" id="fs-order">
+        <legend>じゅんばん</legend>
+        <div class="seg">
+          <label><input type="radio" name="order" value="first" checked><span>あなたが くろ（さき）</span></label>
+          <label><input type="radio" name="order" value="second"><span>あなたが しろ</span></label>
+          <label><input type="radio" name="order" value="random"><span>おまかせ</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend id="hc-legend">ハンデ（あなたが さきに かどを もらう）</legend>
+        <select name="handicap" id="sel-handicap">
+          <option value="0">なし</option>
+          <option value="1">かど 1つ</option>
+          <option value="2">かど 2つ</option>
+          <option value="3">かど 3つ</option>
+          <option value="4">かど 4つ</option>
+        </select>
+      </fieldset>
+      <div class="dlg-buttons">
+        <button value="cancel" type="submit" id="btn-new-cancel">やめる</button>
+        <button value="ok" class="primary" type="submit">はじめる！</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-menu">
+    <form method="dialog" class="dlg menu">
+      <h2>メニュー</h2>
+      <button value="new" type="submit" class="primary">あたらしく はじめる</button>
+      <button value="puzzle" type="submit">さいごの もんだい（30もん）</button>
+      <button value="howto" type="submit">あそびかた</button>
+      <button value="guide" type="submit">リバーシの ルール</button>
+      <button value="settings" type="submit">せってい</button>
+      <button value="resign" type="submit" class="danger" id="btn-resign">こうさんする</button>
+      <button value="close" type="submit">とじる</button>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-guide">
+    <form method="dialog" class="dlg wide guide">
+      <h2>リバーシの ルール</h2>
+      <div class="guide-grid" id="guide-list"></div>
+      <div class="dlg-buttons"><button class="primary" value="close" type="submit">とじる</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-howto">
+    <form method="dialog" class="dlg wide howto">
+      <h2>あそびかた</h2>
+      <section>
+        <h3>石の おきかた</h3>
+        <ol>
+          <li><span class="lg lg-dot"></span> が でている マスが おける ところ。数字は ひっくりかえる 石の かず だよ。</li>
+          <li>おきたい マスを タッチすると、うすい 石が でて、ひっくりかえる 石が <span class="lg lg-flip"></span> で ひかるよ。</li>
+          <li>おなじ マスを もういちど タッチすると、石を おくよ。</li>
+        </ol>
+        <p>（「せってい」で、1回の タッチで おくように かえられるよ）</p>
+      </section>
+      <section>
+        <h3>はさむ と ひっくりかえる</h3>
+        <p>じぶんの 石で、あいての 石を たて・よこ・ななめ に はさむと、はさんだ 石が ぜんぶ じぶんの 色に なるよ。1こも はさめない ところには おけないよ。</p>
+      </section>
+      <section>
+        <h3>パス と おわり</h3>
+        <p>おける ところが ない ときは、じどうで パスに なって、あいてが つづけて うつよ。ふたりとも おけなく なったら おわり。石が おおい ほうの かち！</p>
+      </section>
+      <section>
+        <h3>おたすけ きのう</h3>
+        <ul>
+          <li><b>おける ところ</b>：<span class="lg lg-dot"></span> や 数字が でている マスに おけるよ。</li>
+          <li><b>かど</b>：<span class="lg lg-corner"></span> は かど。かどの 石は もう ぜったいに ひっくりかえらないよ。</li>
+          <li><b>あぶないマーク</b>：<span class="lg lg-warn">!</span> は そこに おくと、あいてに かどを とられちゃう という しるし。</li>
+          <li><b>石を タッチ</b>：その石が もう ひっくりかえらない「かくてい」か どうかが わかるよ。</li>
+          <li><b>ヒント</b>：まよったら おしてみよう。おすすめの 手を おしえて くれるよ。</li>
+          <li><b>まった</b>：まちがえたら、何回でも もどせるよ。</li>
+        </ul>
+      </section>
+      <div class="dlg-buttons"><button class="primary" value="close" type="submit">わかった！</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-settings">
+    <form method="dialog" class="dlg">
+      <h2>せってい</h2>
+      <label class="toggle"><input type="checkbox" name="moves"><span>おける ところ（<span class="lg lg-dot"></span> を だす）</span></label>
+      <label class="toggle"><input type="checkbox" name="counts"><span>ひっくりかえる かず（おける ところに 数字）</span></label>
+      <label class="toggle"><input type="checkbox" name="danger"><span>あぶないマーク（かどを とられちゃう ところに ！）</span></label>
+      <label class="toggle"><input type="checkbox" name="stable"><span>かくてい石 に しるし（もう ひっくりかえらない 石）</span></label>
+      <label class="toggle"><input type="checkbox" name="confirm"><span>おく まえに たしかめる（2回 タッチで おく）</span></label>
+      <label class="toggle"><input type="checkbox" name="sound"><span>おと</span></label>
+      <div class="dlg-buttons"><button class="primary" value="close" type="submit">とじる</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-puzzle">
+    <form method="dialog" class="dlg wide">
+      <h2>さいごの もんだい</h2>
+      <p>くろの ばん。さいごまで うって、くろの 石を しろより おおく しよう！ しろは くろが いちばん こまる 手を うってくるよ。</p>
+      <div id="puzzle-list"></div>
+      <div class="dlg-buttons"><button value="close" type="submit">とじる</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-puzzle-result">
+    <form method="dialog" class="dlg pz-result" id="puzzle-result"></form>
+  </dialog>
+
+  <dialog id="dlg-result">
+    <form method="dialog" class="dlg result">
+      <h2 id="result-title"></h2>
+      <p id="result-text"></p>
+      <div id="result-score"></div>
+      <div class="dlg-buttons">
+        <button value="close" type="submit">ばんめんを みる</button>
+        <button value="undo" type="submit" id="btn-result-undo">まった</button>
+        <button value="new" class="primary" type="submit">もういちど</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/rules.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/puzzle.js"></script>
+  <script src="js/puzzle-data.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
